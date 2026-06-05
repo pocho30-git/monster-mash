@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Monster Mash Survivor - Developer Edition</title>
+<title>Monster Mash Survivor (Creator Edition)</title>
 
 <style>
 body{
@@ -26,6 +26,24 @@ canvas{
     z-index:10;
     font-size:20px;
     line-height:1.5;
+}
+
+#creatorBadge {
+    display: none;
+    color: #ff33aa;
+    font-weight: bold;
+    text-shadow: 0 0 5px #ff33aa;
+}
+
+#creatorBtn {
+    margin-top: 5px;
+    background: #ff33aa;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    padding: 5px 10px;
+    font-size: 14px;
+    cursor: pointer;
 }
 
 #upgradeMenu{
@@ -74,38 +92,6 @@ button{
     border-radius:10px;
     cursor:pointer;
 }
-
-/* DEVELOPER PANEL STYLING */
-#debugMenu {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    background: rgba(0, 0, 0, 0.9);
-    border: 2px dashed #ff3333;
-    padding: 15px;
-    border-radius: 10px;
-    z-index: 40;
-    display: none; /* Hidden by default */
-    font-family: monospace;
-    width: 200px;
-}
-
-.debugBtn {
-    background: #c33;
-    color: white;
-    border: none;
-    padding: 8px 12px;
-    margin: 5px 0;
-    cursor: pointer;
-    border-radius: 4px;
-    width: 100%;
-    text-align: left;
-    font-size: 14px;
-}
-
-.debugBtn:hover {
-    background: #f44;
-}
 </style>
 </head>
 
@@ -116,7 +102,9 @@ button{
 ⚔️ Round: <span id="round">1</span><br>
 👾 Enemies: <span id="left">0</span><br>
 ⭐ Level: <span id="level">1</span><br>
-🛡️ Guards: <span id="guardCount">0</span>/<span id="maxGuards">0</span>
+🛡️ Guards: <span id="guardCount">0</span>/<span id="maxGuards">0</span><br>
+<span id="creatorBadge">👑 CREATOR MODE</span>
+<button id="creatorBtn" onclick="checkCreatorCode()">Enter Creator Code</button>
 </div>
 
 <div id="upgradeMenu">
@@ -127,15 +115,6 @@ button{
 <div id="gameOver">
 <h1>GAME OVER</h1>
 <button onclick="location.reload()">Restart</button>
-</div>
-
-<div id="debugMenu">
-    <h3 style="margin-top:0; color:#ff3333; text-align:center;">🛠️ DEV PANEL</h3>
-    <button class="debugBtn" onclick="debugGodMode()">🛡️ God Mode: OFF</button>
-    <button class="debugBtn" onclick="debugInstakill()">💥 Instakill: OFF</button>
-    <button class="debugBtn" onclick="debugSkipRound()">⏩ Skip Round</button>
-    <button class="debugBtn" onclick="debugMaxGuards()">💂 Spawn 5 Guards</button>
-    <p style="font-size:11px; margin-bottom:0; color:#aaa; text-align:center;">Press [ ~ ] to toggle menu</p>
 </div>
 
 <canvas id="game"></canvas>
@@ -150,21 +129,32 @@ canvas.height = innerHeight;
 const keys = {};
 const mouse = {x:0,y:0};
 
-// Developer Global Flags
-let isGodMode = false;
-let isInstakill = false;
+// Creator State System
+let isCreator = false;
+const CREATOR_KEY = "SECRET123"; // Change this to your secret access code!
+
+function checkCreatorCode() {
+    let code = prompt("Enter the Creator Secret Key:");
+    if(code === CREATOR_KEY) {
+        isCreator = true;
+        document.getElementById("creatorBtn").style.display = "none";
+        document.getElementById("creatorBadge").style.display = "inline";
+        
+        // Instantly grant baseline level 1 creator-only features upon authentication
+        if(!abilities.singularity){ abilities.singularity = { radius: 110 }; }
+        if(!abilities.darkEnergy){ abilities.darkEnergy = { radius:80, damage:0.85 }; }
+        
+        alert("Access Granted. Creator status verified!");
+    } else {
+        alert("Invalid Creator Key.");
+    }
+}
 
 document.addEventListener("keydown",e=>{
     keys[e.key.toLowerCase()] = true;
     
     if(e.key.toLowerCase() === "q" && !paused && abilities.guards) {
         spawnGuard();
-    }
-
-    // Toggle creator menu using backtick/tilde key
-    if (e.key === "`" || e.key === "~") {
-        const debugMenu = document.getElementById("debugMenu");
-        debugMenu.style.display = debugMenu.style.display === "block" ? "none" : "block";
     }
 });
 
@@ -196,12 +186,12 @@ const abilities = {
     feathers:null,
     bananas:null,
     pizza:null,
-    darkEnergy:null,
+    darkEnergy:null, // Creator Only baseline
     guards:null,
     vampiric:null,      
     frostNova:null,     
     chainLightning:null,
-    singularity:null    
+    singularity:null  // Creator Only baseline  
 };
 
 let enemies = [];
@@ -250,10 +240,7 @@ class Enemy{
         this.y += dy/dist * this.speed;
 
         if(dist < this.r + player.r){
-            // Modified: Only deal damage if Creator God Mode is active
-            if (!isGodMode) {
-                player.hp -= 0.15;
-            }
+            player.hp -= 0.15;
         }
 
         if(this.flash > 0){
@@ -489,11 +476,6 @@ class LightningArc {
 let arcs = [];
 
 function damageEnemy(enemy,damage,dx,dy,sourceType){
-    // Modified: If instakill is active, deal massive damage bypassing normal checks
-    if (isInstakill) {
-        damage = 999999;
-    }
-
     if(enemy.frozenTimer > 0 && sourceType !== "darkEnergy") {
         if(Math.random() < 0.20) { 
             damage *= 1.8;
@@ -524,7 +506,7 @@ function damageEnemy(enemy,damage,dx,dy,sourceType){
             new DamageText(
                 enemy.x + (Math.random()*20-10),
                 enemy.y - 20,
-                "-" + (displayDamage > 100000 ? "9999" : displayDamage),
+                "-" + displayDamage,
                 "white"
             )
         );
@@ -755,6 +737,7 @@ setInterval(() => {
     frostNovaRadius = 0;
 }, 7000);
 
+// Gravity Singularity (Now updates only if authenticated as a creator)
 setInterval(() => {
     if(paused || !abilities.singularity) return;
     singularities.push({
@@ -779,6 +762,7 @@ function update(){
     if(frostNovaActive && abilities.frostNova) {
         frostNovaRadius += 9;
         enemies.forEach(e => {
+            let d = Math.hypot(e.x - player.x, e.y - player.y);
             if(Math.abs(d - frostNovaRadius) < 15 && e.frozenTimer <= 0) {
                 e.frozenTimer = abilities.frostNova.duration;
             }
@@ -868,7 +852,7 @@ function update(){
         showUpgrades();
     }
 
-    if(player.hp <= 0 && !isGodMode){
+    if(player.hp <= 0){
         paused = true;
         document.getElementById("gameOver").style.display = "block";
     }
@@ -958,36 +942,6 @@ function updateUI(){
     document.getElementById("maxGuards").textContent = abilities.guards ? abilities.guards.max : 0;
 }
 
-// CREATOR FUNCTIONS
-function debugGodMode() {
-    isGodMode = !isGodMode;
-    const btn = document.querySelectorAll(".debugBtn")[0];
-    btn.innerHTML = isGodMode ? "🛡️ God Mode: ON" : "🛡️ God Mode: OFF";
-    if(isGodMode) player.hp = 100;
-}
-
-function debugInstakill() {
-    isInstakill = !isInstakill;
-    const btn = document.querySelectorAll(".debugBtn")[1];
-    btn.innerHTML = isInstakill ? "💥 Instakill: ON" : "💥 Instakill: OFF";
-}
-
-function debugSkipRound() {
-    enemies = [];
-}
-
-function debugMaxGuards() {
-    if (!abilities.guards) {
-        abilities.guards = { max: 5 };
-    } else {
-        abilities.guards.max += 5;
-    }
-    for(let i = guards.length; i < abilities.guards.max; i++) {
-        guards.push(new Guard(player.x, player.y));
-    }
-    updateUI();
-}
-
 function showUpgrades(){
     const menu = document.getElementById("upgradeMenu");
     const choices = document.getElementById("choices");
@@ -995,7 +949,8 @@ function showUpgrades(){
     menu.style.display = "block";
     choices.innerHTML = "";
 
-    const upgrades = [
+    // Base upgrades available to all normal players
+    let upgrades = [
         {
             name:"⚡ Faster Shooting",
             effect:()=>{ player.fireRate = Math.max(100,player.fireRate-40); }
@@ -1048,17 +1003,6 @@ function showUpgrades(){
             }
         },
         {
-            name:"🌑 Dark Energy",
-            effect:()=>{
-                if(!abilities.darkEnergy){
-                    abilities.darkEnergy = { radius:80, damage:0.85 };
-                } else {
-                    abilities.darkEnergy.radius += 20;
-                    abilities.darkEnergy.damage += 0.45;
-                }
-            }
-        },
-        {
             name:"🛡️ Guard Capacity +1",
             effect:()=>{
                 if(!abilities.guards){ abilities.guards = { max: 1 }; } 
@@ -1091,15 +1035,32 @@ function showUpgrades(){
                 if(!abilities.chainLightning){ abilities.chainLightning = { bounces: 1 }; } 
                 else { abilities.chainLightning.bounces += 1; }
             }
-        },
-        {
-            name:"🧲 Gravity Singularity",
-            effect:()=>{
-                if(!abilities.singularity){ abilities.singularity = { radius: 110 }; } 
-                else { abilities.singularity.radius += 30; }
-            }
         }
     ];
+
+    // Exclusively inject these upgrade choices ONLY if authenticated via creator key
+    if (isCreator) {
+        upgrades.push(
+            {
+                name:"👑 [CREATOR] Dark Energy Surge",
+                effect:()=>{
+                    if(!abilities.darkEnergy){
+                        abilities.darkEnergy = { radius:80, damage:0.85 };
+                    } else {
+                        abilities.darkEnergy.radius += 35;
+                        abilities.darkEnergy.damage += 0.8;
+                    }
+                }
+            },
+            {
+                name:"👑 [CREATOR] Singularity Expansion",
+                effect:()=>{
+                    if(!abilities.singularity){ abilities.singularity = { radius: 110 }; } 
+                    else { abilities.singularity.radius += 50; }
+                }
+            }
+        );
+    }
 
     upgrades.sort(()=>Math.random()-0.5);
 
