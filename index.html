@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Monster Mash Survivor (Creator Edition)</title>
+<title>Monster Mash Survivor (God Mode Creator Edition)</title>
 
 <style>
 body{
@@ -30,20 +30,28 @@ canvas{
 
 #creatorBadge {
     display: none;
-    color: #ff33aa;
+    color: #00ffff;
     font-weight: bold;
-    text-shadow: 0 0 5px #ff33aa;
+    text-shadow: 0 0 10px #00ffff, 0 0 20px #ff00ff;
+    animation: pulse 1.5s infinite alternate;
+}
+
+@keyframes pulse {
+    from { opacity: 0.6; }
+    to { opacity: 1; text-shadow: 0 0 20px #00ffff, 0 0 30px #ff00ff; }
 }
 
 #creatorBtn {
     margin-top: 5px;
-    background: #ff33aa;
+    background: linear-gradient(45deg, #ff00ff, #00ffff);
     color: white;
     border: none;
     border-radius: 5px;
-    padding: 5px 10px;
+    padding: 6px 12px;
     font-size: 14px;
+    font-weight: bold;
     cursor: pointer;
+    box-shadow: 0 0 8px rgba(0,255,255,0.5);
 }
 
 #upgradeMenu{
@@ -75,6 +83,15 @@ canvas{
     background:#666;
 }
 
+.creatorUpgrade {
+    background: linear-gradient(90deg, #3a005c, #004b5c) !important;
+    border: 2px solid #00ffff !important;
+    text-shadow: 0 0 5px #00ffff;
+}
+.creatorUpgrade:hover {
+    background: linear-gradient(90deg, #5a008c, #007b9c) !important;
+}
+
 #gameOver{
     position:absolute;
     top:50%;
@@ -103,7 +120,7 @@ button{
 👾 Enemies: <span id="left">0</span><br>
 ⭐ Level: <span id="level">1</span><br>
 🛡️ Guards: <span id="guardCount">0</span>/<span id="maxGuards">0</span><br>
-<span id="creatorBadge">👑 CREATOR MODE</span>
+<span id="creatorBadge">👑 GOD-MODE CREATOR ACTIVATED</span>
 <button id="creatorBtn" onclick="checkCreatorCode()">Enter Creator Code</button>
 </div>
 
@@ -131,7 +148,7 @@ const mouse = {x:0,y:0};
 
 // Creator State System
 let isCreator = false;
-const CREATOR_KEY = "SECRET123"; // Change this to your secret access code!
+const CREATOR_KEY = "SECRET123"; // Your Secret Password
 
 function checkCreatorCode() {
     let code = prompt("Enter the Creator Secret Key:");
@@ -140,19 +157,22 @@ function checkCreatorCode() {
         document.getElementById("creatorBtn").style.display = "none";
         document.getElementById("creatorBadge").style.display = "inline";
         
-        // Instantly grant baseline level 1 creator-only features upon authentication
-        if(!abilities.singularity){ abilities.singularity = { radius: 110 }; }
-        if(!abilities.darkEnergy){ abilities.darkEnergy = { radius:80, damage:0.85 }; }
+        // Instantly unlock baseline creator passives
+        if(!abilities.singularity){ abilities.singularity = { radius: 130 }; }
+        if(!abilities.darkEnergy){ abilities.darkEnergy = { radius: 100, damage: 1.5 }; }
         
-        alert("Access Granted. Creator status verified!");
+        // Boost core base stats right away
+        player.hp = 100;
+        player.damage = 25;
+        
+        alert("Welcome back, Creator. God powers unlocked.");
     } else {
-        alert("Invalid Creator Key.");
+        alert("Access Denied.");
     }
 }
 
 document.addEventListener("keydown",e=>{
     keys[e.key.toLowerCase()] = true;
-    
     if(e.key.toLowerCase() === "q" && !paused && abilities.guards) {
         spawnGuard();
     }
@@ -186,12 +206,14 @@ const abilities = {
     feathers:null,
     bananas:null,
     pizza:null,
-    darkEnergy:null, // Creator Only baseline
+    darkEnergy:null, 
     guards:null,
     vampiric:null,      
     frostNova:null,     
     chainLightning:null,
-    singularity:null  // Creator Only baseline  
+    singularity:null,
+    // Brand new creator logic properties
+    chronoFreeze: false
 };
 
 let enemies = [];
@@ -213,6 +235,11 @@ class Enemy{
         this.color = `hsl(${Math.random()*360},80%,60%)`;
         this.flash = 0;
         this.frozenTimer = 0;
+        
+        // Auto trigger creator freeze phase on spawn if unlocked
+        if (isCreator && abilities.chronoFreeze) {
+            this.frozenTimer = 300; 
+        }
     }
 
     update(){
@@ -221,8 +248,10 @@ class Enemy{
             if(sDist < s.radius) {
                 let sdx = s.x - this.x;
                 let sdy = s.y - this.y;
-                this.x += (sdx / sDist) * 2.5; 
-                this.y += (sdy / sDist) * 2.5;
+                // Creators suck enemies in much faster
+                let pullForce = isCreator ? 4.5 : 2.5;
+                this.x += (sdx / sDist) * pullForce; 
+                this.y += (sdy / sDist) * pullForce;
             }
         });
 
@@ -240,7 +269,8 @@ class Enemy{
         this.y += dy/dist * this.speed;
 
         if(dist < this.r + player.r){
-            player.hp -= 0.15;
+            // Creators take half damage natively
+            player.hp -= isCreator ? 0.07 : 0.15;
         }
 
         if(this.flash > 0){
@@ -335,7 +365,7 @@ class Guard {
         ctx.beginPath();
         ctx.arc(this.x, this.y + 2, 6, 0, Math.PI, true);
         ctx.lineTo(this.x, this.y - 6);
-        ctx.closePath();
+        box=ctx.closePath();
         ctx.fill();
         ctx.restore();
     }
@@ -369,7 +399,7 @@ class Projectile{
         ctx.rotate(this.rotation);
 
         if(this.type === "bullet"){
-            ctx.fillStyle = "yellow";
+            ctx.fillStyle = isCreator ? "#00ffff" : "yellow"; // Cyan bullets for creator
             ctx.beginPath();
             ctx.arc(0,0,this.size,0,Math.PI*2);
             ctx.fill();
@@ -592,23 +622,29 @@ function nearestEnemy(x,y){
     return closest;
 }
 
-setInterval(()=>{
-    if(paused) return;
+// Player basic guns weapon loop
+let baseGunTimer = 0;
+function runBasicGun() {
+    baseGunTimer += 16.66; // approx loop step
+    if(baseGunTimer >= player.fireRate) {
+        baseGunTimer = 0;
+        if(paused) return;
 
-    let angle = Math.atan2(mouse.y-player.y,mouse.x-player.x);
-    player.bullets.push(
-        new Projectile(
-            player.x,
-            player.y,
-            Math.cos(angle)*9,
-            Math.sin(angle)*9,
-            5,
-            "yellow",
-            player.damage,
-            "bullet"
-        )
-    );
-},player.fireRate);
+        let angle = Math.atan2(mouse.y-player.y,mouse.x-player.x);
+        player.bullets.push(
+            new Projectile(
+                player.x,
+                player.y,
+                Math.cos(angle)*9,
+                Math.sin(angle)*9,
+                isCreator ? 7 : 5, // bigger projectles for creators
+                "yellow",
+                player.damage,
+                "bullet"
+            )
+        );
+    }
+}
 
 // SPEED ARROWS
 setInterval(()=>{
@@ -737,7 +773,7 @@ setInterval(() => {
     frostNovaRadius = 0;
 }, 7000);
 
-// Gravity Singularity (Now updates only if authenticated as a creator)
+// Gravity Singularity
 setInterval(() => {
     if(paused || !abilities.singularity) return;
     singularities.push({
@@ -750,6 +786,8 @@ setInterval(() => {
 
 function update(){
     if(paused) return;
+
+    runBasicGun();
 
     if(keys["w"]) player.y -= player.speed;
     if(keys["s"]) player.y += player.speed;
@@ -783,7 +821,7 @@ function update(){
             let dist = Math.hypot(player.x-e.x,player.y-e.y);
 
             if(dist < abilities.darkEnergy.radius){
-                e.speed = e.baseSpeed * 0.5;
+                e.speed = e.baseSpeed * 0.3; // Creators slow enemies down even more!
 
                 let dx = (e.x-player.x)/dist;
                 let dy = (e.y-player.y)/dist;
@@ -866,7 +904,7 @@ function draw(){
     singularities.forEach(s => {
         let grad = ctx.createRadialGradient(s.x, s.y, 5, s.x, s.y, s.radius);
         grad.addColorStop(0, "rgba(0,0,0,1)");
-        grad.addColorStop(0.3, "rgba(50,10,90,0.7)");
+        grad.addColorStop(0.3, "rgba(0,180,255,0.7)"); // Special creator vibe color adjustments
         grad.addColorStop(1, "rgba(130,0,255,0)");
         ctx.fillStyle = grad;
         ctx.beginPath();
@@ -884,8 +922,15 @@ function draw(){
             abilities.darkEnergy.radius
         );
 
-        g.addColorStop(0,"rgba(150,0,255,0.45)");
-        g.addColorStop(1,"rgba(150,0,255,0)");
+        // Creator aura shifts color schemas actively 
+        if (isCreator) {
+            g.addColorStop(0,"rgba(0,255,255,0.5)");
+            g.addColorStop(0.5,"rgba(255,0,255,0.2)");
+            g.addColorStop(1,"rgba(150,0,255,0)");
+        } else {
+            g.addColorStop(0,"rgba(150,0,255,0.45)");
+            g.addColorStop(1,"rgba(150,0,255,0)");
+        }
 
         ctx.fillStyle = g;
         ctx.beginPath();
@@ -901,13 +946,15 @@ function draw(){
         ctx.stroke();
     }
 
-    ctx.fillStyle = "#4de1ff";
+    // Give player a golden core skin design if they are a authenticated creator
+    ctx.fillStyle = isCreator ? "#ffd700" : "#4de1ff";
     ctx.beginPath();
     ctx.arc(player.x,player.y,player.r,0,Math.PI*2);
     ctx.fill();
 
-    ctx.strokeStyle = "white";
-    ctx.lineWidth = 5;
+    // Laser sight line indicator tweak
+    ctx.strokeStyle = isCreator ? "#ff00ff" : "white";
+    ctx.lineWidth = isCreator ? 3 : 5;
     ctx.beginPath();
     ctx.moveTo(player.x,player.y);
     ctx.lineTo(mouse.x,mouse.y);
@@ -949,11 +996,11 @@ function showUpgrades(){
     menu.style.display = "block";
     choices.innerHTML = "";
 
-    // Base upgrades available to all normal players
+    // Regular base level updates pool
     let upgrades = [
         {
             name:"⚡ Faster Shooting",
-            effect:()=>{ player.fireRate = Math.max(100,player.fireRate-40); }
+            effect:()=>{ player.fireRate = Math.max(60,player.fireRate-40); }
         },
         {
             name:"💥 More Damage",
@@ -1038,25 +1085,34 @@ function showUpgrades(){
         }
     ];
 
-    // Exclusively inject these upgrade choices ONLY if authenticated via creator key
+    // Ultra-Buffed Creator Options injected conditionally below
     if (isCreator) {
         upgrades.push(
             {
-                name:"👑 [CREATOR] Dark Energy Surge",
+                name:"👑 [CREATOR] Hyper-Drive Speed",
+                isCreatorUpgrade: true,
                 effect:()=>{
-                    if(!abilities.darkEnergy){
-                        abilities.darkEnergy = { radius:80, damage:0.85 };
-                    } else {
-                        abilities.darkEnergy.radius += 35;
-                        abilities.darkEnergy.damage += 0.8;
-                    }
+                    player.speed += 2.5;
+                    player.fireRate = Math.max(40, player.fireRate - 100);
                 }
             },
             {
-                name:"👑 [CREATOR] Singularity Expansion",
+                name:"👑 [CREATOR] Chrono Freeze Phase",
+                isCreatorUpgrade: true,
                 effect:()=>{
-                    if(!abilities.singularity){ abilities.singularity = { radius: 110 }; } 
-                    else { abilities.singularity.radius += 50; }
+                    abilities.chronoFreeze = true;
+                }
+            },
+            {
+                name:"👑 [CREATOR] Obliteration Aura",
+                isCreatorUpgrade: true,
+                effect:()=>{
+                    if(!abilities.darkEnergy){
+                        abilities.darkEnergy = { radius: 150, damage: 2.5 };
+                    } else {
+                        abilities.darkEnergy.radius += 80;
+                        abilities.darkEnergy.damage += 2.5;
+                    }
                 }
             }
         );
@@ -1066,9 +1122,16 @@ function showUpgrades(){
 
     for(let i=0;i<3;i++){
         const up = upgrades[i];
+        if(!up) break; // safeguard count limits
+        
         const div = document.createElement("div");
-
         div.className = "upgradeBtn";
+        
+        // Add unique styling class if it's a god upgrade option
+        if(up.isCreatorUpgrade) {
+            div.classList.add("creatorUpgrade");
+        }
+        
         div.innerHTML = up.name;
 
         div.onclick = ()=>{
